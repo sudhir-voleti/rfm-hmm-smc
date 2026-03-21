@@ -162,7 +162,7 @@ MIT License - see [LICENSE](LICENSE) file.
 ## Contact
 
 - **Issues**: [GitHub Issues](https://github.com/sudhir-voleti/rfm-hmm-smc/issues)
-- **Email**: sudhir.voleti@example.edu
+- **Email**: sudhir_voleti@isb.edu
 
 ## Acknowledgments
 
