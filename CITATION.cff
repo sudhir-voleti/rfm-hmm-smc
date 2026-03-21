@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite both the article and the software itself."
+type: software
+title: "RFM-HMM-SMC: Sequential Monte Carlo for High-Sparsity Transaction Data"
+authors:
+  - family-names: "Voleti"
+    given-names: "Sudhir"
+    orcid: "https://orcid.org/0000-0000-0000-0000"  # Update
+repository-code: "https://github.com/sudhir-voleti/rfm-hmm-smc"  # Update
+license: MIT
+preferred-citation:
+  type: article
+  title: "Sequential Monte Carlo for High-Sparsity Transaction Data: A Structural-Modular Tradeoff in RFM-HMM Estimation"
+  authors:
+    - family-names: "Voleti"
+      given-names: "Sudhir"
+  journal: "Marketing Science"
+  year: 2026
+  volume: 45
+  issue: 2
+  pages: "123-145"
+  status: "forthcoming"
