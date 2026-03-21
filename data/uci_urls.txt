@@ -1,0 +1,11 @@
+# UCI Online Retail Dataset URLs
+# Primary dataset (ID 352): 2010-2011 transactions
+https://archive.ics.uci.edu/static/public/352/data.csv
+
+# Alternative (ID 502): 2009-2011, larger sample
+https://archive.ics.uci.edu/static/public/502/data.csv
+
+# Citation:
+# Chen, D. Y., Sain, S. L., & Guo, G. (2012). Data mining for the online retail 
+# industry: A case study of RFM model-based customer segmentation using data mining. 
+# Journal of Database Marketing & Customer Strategy Management, 19(3), 197-208.
