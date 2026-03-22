@@ -16,66 +16,75 @@ def test_suite():
     print("=" * 70)
     print("RFM-HMM-SMC Reproducibility Check")
     print("=" * 70)
-    
-    # 1. Path Check
-    print("\n[1] Checking system path...")
-    try:
-        # Ensure src is in path
-        src_path = Path(__file__).parent / "src"
-        if str(src_path) not in sys.path:
-            sys.path.insert(0, str(src_path))
-        
-        import src
-        print("   ✓ System path and src directory aligned.")
-    except ImportError as e:
-        print(f"   ✗ FAIL: src not found: {e}")
-        print("   Attempting fix...")
-        sys.path.insert(0, os.getcwd())
-        try:
-            import src
-            print("   ✓ Fixed: Added current directory to sys.path.")
-        except ImportError:
-            print("   ✗ CRITICAL: Cannot locate src directory.")
-            return False
 
-    # 2. Core Model Imports
+    # 1. Path Check - add src to path
+    print("\n[1] Checking system path...")
+    src_path = Path(__file__).parent / "src"
+
+    if not src_path.exists():
+        print(f" ✗ CRITICAL: src directory not found at {src_path}")
+        return False
+
+    if str(src_path) not in sys.path:
+        sys.path.insert(0, str(src_path))
+        print(f" ✓ Added src to path: {src_path}")
+    else:
+        print(" ✓ src already in path")
+
+    # 2. Core Model Imports (without src. prefix)
     print("\n[2] Checking model imports...")
     models_to_test = [
-        ("src.models.smc_hmm_bemmaor", "run_smc_bemmaor"),
-        ("src.models.smc_hmm_hurdle", "run_smc_hurdle"),
-        ("src.models.smc_hmm_tweedie", "run_smc_tweedie"),
+        ("models.smc_hmm_bemmaor", "run_smc_bemmaor"),
+        ("models.smc_hmm_hurdle", "run_smc_hurdle"),
+        ("models.smc_hmm_tweedie", "run_smc_tweedie"),
     ]
-    
+
+    all_imports_ok = True
     for module_name, func_name in models_to_test:
         try:
             module = __import__(module_name, fromlist=[func_name])
             getattr(module, func_name)
-            print(f"   ✓ {module_name} imported.")
+            print(f" ✓ {module_name}.{func_name} imported")
         except ImportError as e:
-            print(f"   ✗ FAIL: {module_name}: {e}")
+            print(f" ✗ FAIL: {module_name}: {e}")
+            all_imports_ok = False
+        except AttributeError as e:
+            print(f" ✗ FAIL: {func_name} not found in {module_name}: {e}")
+            all_imports_ok = False
 
-    # 3. Utilities
+    # 3. Utilities (without src. prefix)
     print("\n[3] Checking utilities...")
     try:
-        from src.utils.data_utils import load_simulation_data
-        from src.utils.metrics import compute_ari
-        from src.core.forward_filter import forward_filter_numpy
-        print("   ✓ Data utilities functional.")
-        print("   ✓ Metrics module functional.")
-        print("   ✓ Core algorithms functional.")
+        from utils.data_utils import load_simulation_data
+        print(" ✓ Data utilities functional")
     except ImportError as e:
-        print(f"   ✗ FAIL: Utility import error: {e}")
+        print(f" ✗ FAIL: data_utils: {e}")
+        all_imports_ok = False
+
+    try:
+        from utils.metrics import compute_ari
+        print(" ✓ Metrics module functional")
+    except ImportError as e:
+        print(f" ✗ FAIL: metrics: {e}")
+        all_imports_ok = False
+
+    try:
+        from core.forward_filter import forward_filter_numpy
+        print(" ✓ Core algorithms functional")
+    except ImportError as e:
+        print(f" ✗ FAIL: forward_filter: {e}")
+        all_imports_ok = False
 
     # 4. Data availability
     print("\n[4] Checking data files...")
     data_dir = Path(__file__).parent / "data" / "simulation"
     if data_dir.exists():
         npy_files = list(data_dir.glob("*.npy"))
-        print(f"   ✓ Simulation data directory found ({len(npy_files)} .npy files).")
+        print(f" ✓ Simulation data directory found ({len(npy_files)} .npy files)")
         if len(npy_files) == 0:
-            print("   ⚠ WARNING: No .npy files found. Run simulation generator.")
+            print(" ⚠ WARNING: No .npy files found. Run simulation generator.")
     else:
-        print(f"   ✗ FAIL: Data directory not found: {data_dir}")
+        print(f" ✗ FAIL: Data directory not found: {data_dir}")
 
     # 5. Examples
     print("\n[5] Checking example scripts...")
@@ -87,26 +96,31 @@ def test_suite():
     for ex in examples:
         ex_path = Path(__file__).parent / ex
         if ex_path.exists():
-            print(f"   ✓ {ex} found.")
+            print(f" ✓ {ex} found")
         else:
-            print(f"   ✗ FAIL: {ex} not found.")
+            print(f" ✗ FAIL: {ex} not found")
 
     # 6. Figures
     print("\n[6] Checking figure generation...")
     fig_script = Path(__file__).parent / "figures" / "generate_figures.py"
     if fig_script.exists():
-        print(f"   ✓ Figure generation script found.")
+        print(f" ✓ Figure generation script found")
     else:
-        print(f"   ⚠ WARNING: Figure script not found.")
+        print(f" ⚠ WARNING: Figure script not found")
 
     print("\n" + "=" * 70)
-    print("Check Complete")
+    if all_imports_ok:
+        print("✓ Check Complete - All imports successful")
+    else:
+        print("✗ Check Complete - Some imports failed")
     print("=" * 70)
-    print("\nNext steps:")
-    print("  1. If all ✓ above: Run 'python examples/run_demo.py --model BEMMAOR --world Poisson --K 2'")
-    print("  2. For full reproduction: See README.md")
-    
-    return True
+
+    if all_imports_ok:
+        print("\nNext steps:")
+        print(" 1. Run demo: python examples/run_demo.py --model BEMMAOR --world Poisson --K 2")
+        print(" 2. For full reproduction: See README.md")
+
+    return all_imports_ok
 
 if __name__ == "__main__":
     success = test_suite()
