@@ -5,7 +5,10 @@
 # =============================================================================
 
 import os
-os.environ['PYTENSOR_FLAGS'] = 'floatX=float32,optimizer=fast_run,openmp=True'
+# os.environ['PYTENSOR_FLAGS'] = 'floatX=float32,optimizer=fast_run,openmp=True'
+# Force Python backend for cross-platform compatibility
+# C backend can cause compilation errors on some systems
+os.environ['PYTENSOR_FLAGS'] = 'floatX=float32,device=cpu,mode=FAST_COMPILE'
 
 import numpy as np
 import pytensor.tensor as pt
