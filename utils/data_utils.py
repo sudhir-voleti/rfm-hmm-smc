@@ -9,35 +9,49 @@ from pathlib import Path
 from typing import Dict, Tuple, Optional
 import warnings
 
-
-def load_simulation_data(world: str, N: int, T: int, seed: int, data_dir: Path) -> Dict:
+def load_simulation_data(world: str, N: int, T: int, seed: int, data_dir: Path):
     """
-    Load simulation data from .npy file.
-
-    Expected file: {world}_N{N}_T{T}_seed{seed}.npy
+    Load simulation data from separate .npy (states) and .csv (spend) files.
+    
+    Expected files:
+      - true_states_{world}_N{N}_T{T}.npy
+      - hmm_{world}_N{N}_T{T}.csv
     """
-    filename = data_dir / f"{world.lower()}_N{N}_T{T}_seed{seed}.npy"
-
-    if not filename.exists():
-        raise FileNotFoundError(
-            f"Simulation data not found: {filename}\n"
-            f"Generate via: python data/simulation/generate_simulation.py "
-            f"--world {world} --N {N} --T {T} --seed {seed}"
-        )
-
-    data = np.load(filename, allow_pickle=True).item()
-
+    world_cap = world.capitalize()
+    
+    # File paths
+    states_file = data_dir / f"true_states_{world_cap}_N{N}_T{T}.npy"
+    csv_file = data_dir / f"hmm_{world_cap}_N{N}_T{T}.csv"
+    
+    if not states_file.exists():
+        raise FileNotFoundError(f"States file not found: {states_file}")
+    if not csv_file.exists():
+        raise FileNotFoundError(f"CSV file not found: {csv_file}")
+    
+    # Load states
+    true_states = np.load(states_file, allow_pickle=True)  # Shape: (N, T)
+    
+    # Load spend data from CSV
+    df = pd.read_csv(csv_file)
+    
+    # Pivot to wide format (N, T)
+    y = df.pivot(index='customer_id', columns='t', values='y').values
+    
+    # Verify shapes match
+    if y.shape != true_states.shape:
+        raise ValueError(f"Shape mismatch: y={y.shape}, states={true_states.shape}")
+    
     return {
-        'y': data['y'],  # (N, T) transaction matrix
-        'true_states': data['true_states'],  # (N, T) ground truth
-        'params': data.get('params', {}),
-        'world': world,
-        'N': N,
-        'T': T,
-        'seed': seed,
+        'y': y,
+        'true_states': true_states,
+        'params': {
+            'world': world,
+            'N': N,
+            'T': T,
+            'seed': seed,
+        }
     }
-
-
+    
 def load_uci_data(csv_path: Path, min_transactions: int = 5) -> pd.DataFrame:
     """
     Load and clean UCI Online Retail dataset.
