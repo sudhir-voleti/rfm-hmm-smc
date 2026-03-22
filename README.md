@@ -73,6 +73,8 @@ From existing PKLs:
 python figures/generate_figures.py --config figures/config.yaml
 ```
 
+Note: Pre-generated figures included for reference.
+
 ## Repository Structure
 
 ```
