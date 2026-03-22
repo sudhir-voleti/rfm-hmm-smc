@@ -36,8 +36,13 @@ pip install -r requirements.txt
 # Install package (editable mode for development)
 pip install -e .
 ```
-
 ## Quick Start
+
+### Quick Verification
+
+After installation, verify the codebase works:
+```bash
+python reproducibility_check.py
 
 ### 1. Simulation Study (4 Worlds)
 
