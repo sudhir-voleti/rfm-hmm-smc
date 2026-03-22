@@ -123,6 +123,29 @@ python data/process_uci.py --dataset 352
 
 **Parallel Execution**: For speed, run multiple terminals with different `--world` arguments.
 
+## PKL Output Structure
+
+Models save results as pickled dictionaries with this structure:
+
+```python
+{
+    'idata': InferenceData,           # PyMC posterior (posterior, sample_stats)
+    'res': {                          # Extracted metrics
+        'log_evidence': float,
+        'ari': float,                 # State recovery
+        'clv_ratio': float,           # Value discrimination
+        'oos_rmse': float,            # Predictive accuracy
+        'ppc_simulations': ndarray,   # (draws, N, T) - BEMMAOR/Hurdle only
+        'whale_precision': float,     # Targeting metric
+        ...
+    },
+    'data': {                         # Input data
+        'y': ndarray (N, T),          # Transaction matrix
+        'true_states': ndarray,       # For simulation validation
+        ...
+    }
+}
+
 ## Key Results
 
 ### Structural-Modular Tradeoff (Table 7)
