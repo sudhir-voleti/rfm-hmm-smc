@@ -8,6 +8,25 @@ Run this after cloning/downloading and installing requirements.
 Usage: python reproducibility_check.py
 """
 
+# Check PyTensor environment setup
+print("\n[0] Checking PyTensor environment...")
+import os
+pytensor_flags = os.environ.get('PYTENSOR_FLAGS', '')
+
+if 'FAST_COMPILE' in pytensor_flags:
+    print(" ✓ PyTensor using Python backend (FAST_COMPILE) - cross-platform compatible")
+else:
+    print(" ⚠ WARNING: PyTensor may use C backend")
+    print("   For cross-platform compatibility, set before running:")
+    print("   export PYTENSOR_FLAGS='floatX=float32,device=cpu,mode=FAST_COMPILE'")
+    print("   (or add to your shell profile)")
+
+# Verify floatX is float32
+if 'floatX=float32' in pytensor_flags:
+    print(" ✓ floatX=float32 set (Apple Silicon optimized)")
+else:
+    print(" ⚠ WARNING: floatX not set to float32")
+    
 import sys
 import os
 from pathlib import Path
