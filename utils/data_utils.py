@@ -246,6 +246,165 @@ def train_test_split(data: Dict, train_ratio: float = 0.8, random_seed: int = 42
     return train, test
 
 
-======================================================================
-Save as: src/utils/data_utils.py
-======================================================================
+import numpy as np
+import pandas as pd
+from pathlib import Path
+
+def compute_rfm_features(y, mask):
+    """Compute RFM features from spend matrix and mask."""
+    N, T = y.shape
+    R = np.zeros((N, T), dtype=np.float32)
+    F = np.zeros((N, T), dtype=np.float32)
+    M = np.zeros((N, T), dtype=np.float32)
+
+    for i in range(N):
+        last_purchase = -1
+        cum_freq = 0
+        cum_spend = 0.0
+
+        for t in range(T):
+            if mask[i, t]:
+                if y[i, t] > 0:
+                    last_purchase = t
+                    cum_freq += 1
+                    cum_spend += y[i, t]
+
+                if last_purchase >= 0:
+                    R[i, t] = t - last_purchase
+                    F[i, t] = cum_freq
+                    M[i, t] = cum_spend / cum_freq if cum_freq > 0 else 0.0
+                else:
+                    R[i, t] = t + 1
+                    F[i, t] = 0
+                    M[i, t] = 0.0
+            else:
+                if last_purchase >= 0:
+                    R[i, t] = t - last_purchase
+                    F[i, t] = cum_freq
+                    M[i, t] = cum_spend / cum_freq if cum_freq > 0 else 0.0
+                else:
+                    R[i, t] = 0
+                    F[i, t] = 0
+                    M[i, t] = 0.0
+
+    return R, F, M
+
+def load_simulation_data(world: str, N: int, T: int, seed: int, data_dir: Path):
+    """
+    Load simulation data from CSV files (working approach from old code).
+
+    Expected files:
+      - hmm_{World}_N{N}_T{T}.csv (full data)
+      - hmm_{World}_N{N}_T{T}_seed{seed}.csv (subset data)
+
+    World names: Poisson, Gamma, Sporadic, Clumpy
+    """
+    world_cap = world.capitalize()
+
+    # Try subset file first (with seed suffix)
+    csv_file_seed = data_dir / f"hmm_{world_cap}_N{N}_T{T}_seed{seed}.csv"
+    csv_file_full = data_dir / f"hmm_{world_cap}_N{N}_T{T}.csv"
+
+    if csv_file_seed.exists():
+        csv_file = csv_file_seed
+        print(f"  Loading subset: {csv_file.name}")
+    elif csv_file_full.exists():
+        csv_file = csv_file_full
+        print(f"  Loading full: {csv_file.name}")
+    else:
+        # List available files for debugging
+        available = list(data_dir.glob(f"hmm_{world_cap}_*.csv"))
+        raise FileNotFoundError(
+            f"CSV not found for {world} N={N} T={T}\n"
+            f"Tried: {csv_file_seed.name}, {csv_file_full.name}\n"
+            f"Available: {[f.name for f in available]}"
+        )
+
+    # Load CSV
+    df = pd.read_csv(csv_file)
+
+    # Check required columns
+    required = ['customer_id', 't', 'y', 'true_state']
+    missing = [c for c in required if c not in df.columns]
+    if missing:
+        raise ValueError(f"CSV missing columns: {missing}. Found: {list(df.columns)}")
+
+    # Reshape to panel
+    N_actual = df['customer_id'].nunique()
+    T_actual = df['t'].nunique()
+
+    y = df.pivot(index='customer_id', columns='t', values='y').values
+    true_states = df.pivot(index='customer_id', columns='t', values='true_state').values
+
+    # Handle shape mismatches (pad or truncate to requested T)
+    if T_actual != T:
+        if T_actual < T:
+            # Pad with zeros
+            pad_width = ((0, 0), (0, T - T_actual))
+            y = np.pad(y, pad_width, mode='constant', constant_values=0)
+            true_states = np.pad(true_states, pad_width, mode='constant', constant_values=-1)
+        else:
+            # Truncate
+            y = y[:, :T]
+            true_states = true_states[:, :T]
+        T_effective = T
+    else:
+        T_effective = T_actual
+
+    # Handle N mismatch (subsample if needed)
+    if N_actual != N:
+        if N_actual < N:
+            raise ValueError(f"Requested N={N} but file only has {N_actual} customers")
+        # Subsample
+        rng = np.random.default_rng(seed)
+        idx = rng.choice(N_actual, N, replace=False)
+        y = y[idx, :]
+        true_states = true_states[idx, :]
+        N_effective = N
+    else:
+        N_effective = N_actual
+
+    # Create mask (valid where true_state >= 0)
+    mask = (true_states >= 0) & (~np.isnan(y))
+    y = np.where(mask, y, 0.0)
+
+    # Compute RFM
+    R, F, M = compute_rfm_features(y, mask)
+
+    # Standardize RFM
+    M_log = np.log1p(M)
+    R_valid, F_valid, M_valid = R[mask], F[mask], M_log[mask]
+
+    if len(R_valid) > 0 and R_valid.std() > 0:
+        R = (R - R_valid.mean()) / (R_valid.std() + 1e-6)
+    if len(F_valid) > 0 and F_valid.std() > 0:
+        F = (F - F_valid.mean()) / (F_valid.std() + 1e-6)
+    if len(M_valid) > 0 and M_valid.std() > 0:
+        M_scaled = (M_log - M_valid.mean()) / (M_valid.std() + 1e-6)
+    else:
+        M_scaled = M_log
+
+    # Summary stats
+    y_valid = y[mask]
+    zero_rate = np.mean(y_valid == 0) if len(y_valid) > 0 else 0.0
+    print(f"  Data: N={N_effective}, T={T_effective}, zeros={zero_rate:.1%}")
+
+    return {
+        'y': y.astype(np.float32),
+        'true_states': true_states.astype(np.int32),
+        'mask': mask.astype(bool),
+        'R': R.astype(np.float32),
+        'F': F.astype(np.float32),
+        'M': M_scaled.astype(np.float32),
+        'N': N_effective,
+        'T': T_effective,
+        'world': world,
+        'params': {
+            'world': world,
+            'N': N_effective,
+            'T': T_effective,
+            'seed': seed,
+        }
+    }
+
+
