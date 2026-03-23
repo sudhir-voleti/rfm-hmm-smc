@@ -2,16 +2,10 @@
 """
 RFM-HMM Demo Mode - Quick Pilot Runs
 ======================================
-Fast demonstration with N=50, D=200 (runs in ~2-3 minutes).
+Fast demonstration with configurable N, draws, etc.
 WARNING: Not converged - for structure demonstration only.
 
-Use this to:
-- Verify PKL/idata structure
-- Test metric computations
-- Validate installation
-- Preview results before full runs
-
-Usage: python examples/run_demo.py --model BEMMAOR --world Poisson --K 3
+Usage: python examples/run_demo.py --model BEMMAOR --world Poisson --K 2 --N 50 --draws 200 --seed 42
 
 Author: Sudhir Voleti
 Date: March 2026
@@ -19,7 +13,7 @@ Date: March 2026
 
 import argparse
 import sys
-import warnings
+import numpy as np
 from pathlib import Path
 
 # Add repo root to path (flat structure - no src/ folder)
@@ -30,37 +24,53 @@ from models.smc_hmm_hurdle import run_smc_hurdle
 from models.smc_hmm_tweedie import run_smc
 from utils.data_utils import load_simulation_data
 
-DEMO_CONFIG = {
-    "N": 50,
-    "T": 20,  # Shorter time series
-    "draws": 200,  # Fewer particles
-    "chains": 2,  # Fewer chains
-    "cores": 2,
-}
-
-def run_demo(model: str, world: str, K: int, seed: int = 42):
+def run_demo(model: str, world: str, K: int, N: int, draws: int, 
+             chains: int, seed: int, out_dir: Path):
     """
     Run quick demo with warnings about non-convergence.
     """
     print("=" * 70)
     print("⚠️  DEMO MODE - NOT FOR PRODUCTION")
     print("=" * 70)
-    print(f"Model: {model} | World: {world} | K={K} | N={DEMO_CONFIG['N']}")
-    print(f"Draws: {DEMO_CONFIG['draws']} (vs 1000 for production)")
-    print(f"T: {DEMO_CONFIG['T']} (vs 104 for production)")
+    print(f"Model: {model} | World: {world} | K={K} | N={N}")
+    print(f"Draws: {draws} (vs 1000+ for production)")
+    print(f"Chains: {chains}")
+    print(f"Seed: {seed}")
     print("⚠️  WARNING: Results are NOT converged.")
     print(" Use only for: structure check, metric validation, debugging.")
     print("=" * 70)
 
     # Load data
     data_dir = Path(__file__).parent.parent / "data" / "simulation"
+
+    # Auto-detect T from available data
+    # Try to find matching file
+    world_cap = world.capitalize()
+    import os
+    sim_files = list((Path(__file__).parent.parent / "data" / "simulation").glob(f"hmm_{world_cap}_N{N}_T*_seed{seed}.csv"))
+
+    if sim_files:
+        # Extract T from filename
+        fname = sim_files[0].name
+        T = int(fname.split(f"_N{N}_T")[1].split("_")[0])
+        print(f"  Detected T={T} from data file")
+    else:
+        T = 20  # Default
+        print(f"  Using default T={T}")
+
     try:
-        data = load_simulation_data(world, DEMO_CONFIG["N"], DEMO_CONFIG["T"], seed, data_dir)
-    except FileNotFoundError:
-        print(f"✗ Data not found. Generate first:")
-        print(f" python data/simulation/generate_simulation.py \")
-        print(f"   --world {world} --N {DEMO_CONFIG['N']} --T {DEMO_CONFIG['T']} --seed {seed}")
-        return
+        data = load_simulation_data(world, N, T, seed, data_dir)
+    except FileNotFoundError as e:
+        print(f"✗ Data not found: {e}")
+        print(f"\nGenerate data first:")
+        print(f"  python data/simulation/create_subset.py --world {world} --N {N} --T 20 --seed {seed}")
+        return None
+
+    # DEBUG: Check data
+    print("\n🔍 Data check:")
+    print(f"  y shape: {data['y'].shape}, range: [{data['y'].min():.2f}, {data['y'].max():.2f}]")
+    print(f"  y NaN: {np.isnan(data['y']).sum()}, Inf: {np.isinf(data['y']).sum()}")
+    print(f"  zero rate: {(data['y'] == 0).mean():.1%}")
 
     # Run model
     model_funcs = {
@@ -69,7 +79,6 @@ def run_demo(model: str, world: str, K: int, seed: int = 42):
         "Tweedie": run_smc,
     }
 
-    out_dir = Path(__file__).parent.parent / "results" / "demo"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"\n🚀 Running {model}...")
@@ -77,34 +86,34 @@ def run_demo(model: str, world: str, K: int, seed: int = 42):
         result = model_funcs[model](
             data=data,
             K=K,
-            draws=DEMO_CONFIG["draws"],
-            chains=DEMO_CONFIG["chains"],
-            cores=DEMO_CONFIG["cores"],
+            draws=draws,
+            chains=chains,
             seed=seed,
             out_dir=out_dir,
         )
 
         print(f"\n✓ Demo complete!")
-        print(f" PKL: {out_dir}/smc_K{K}_{model}_N{DEMO_CONFIG['N']}_demo.pkl")
-        print(f"\n📊 Quick metrics (UNCONVERGED):")
-        print(f" Log-Ev: {result.get('log_evidence', 'N/A')}")
-        print(f" ARI: {result.get('ari', 'N/A')}")
-        print(f" Time: {result.get('time_min', 'N/A')} min")
+        print(f" PKL: {result[0]}")  # pkl_path
 
-        print(f"\n📁 To inspect idata structure:")
-        print(f" python -c \"")
-        print(f" import pickle;")
-        print(f" data = pickle.load(open('{out_dir}/smc_K{K}_{model}_N{DEMO_CONFIG['N']}_demo.pkl', 'rb'));")
-        print(f" print(data['idata'].groups())")
-        print(f" \"")
+        res = result[1]  # res dict
+        print(f"\n📊 Quick metrics (UNCONVERGED):")
+        print(f" Log-Ev: {res.get('log_evidence', 'N/A')}")
+        print(f" Time: {res.get('time_min', 'N/A'):.1f} min")
+
+        if 'ari' in res:
+            print(f" ARI: {res.get('ari', 'N/A')}")
+
+        return result
 
     except Exception as e:
         print(f"\n✗ Demo failed: {e}")
+        import traceback
+        traceback.print_exc()
         raise
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Demo mode: Quick pilot runs (2-3 min, NOT converged)"
+        description="Demo mode: Quick pilot runs (NOT converged)"
     )
     parser.add_argument(
         "--model", type=str, default="BEMMAOR",
@@ -117,16 +126,39 @@ def main():
         help="Simulation world"
     )
     parser.add_argument(
-        "--K", type=int, default=3,
+        "--K", type=int, default=2,
         help="Number of states"
     )
     parser.add_argument(
+        "--N", type=int, default=50,
+        help="Number of customers (default: 50)"
+    )
+    parser.add_argument(
+        "--draws", type=int, default=200,
+        help="Number of SMC draws/particles (default: 200)"
+    )
+    parser.add_argument(
+        "--chains", type=int, default=2,
+        help="Number of chains (default: 2)"
+    )
+    parser.add_argument(
         "--seed", type=int, default=42,
-        help="Random seed"
+        help="Random seed (default: 42)"
+    )
+    parser.add_argument(
+        "--out_dir", type=str, default=None,
+        help="Output directory (default: results/demo)"
     )
 
     args = parser.parse_args()
-    run_demo(args.model, args.world, args.K, args.seed)
+
+    if args.out_dir is None:
+        out_dir = Path(__file__).parent.parent / "results" / "demo"
+    else:
+        out_dir = Path(args.out_dir)
+
+    run_demo(args.model, args.world, args.K, args.N, args.draws, 
+             args.chains, args.seed, out_dir)
 
 if __name__ == "__main__":
     main()
