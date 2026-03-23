@@ -21,6 +21,13 @@ This repository contains the Python implementation of RFM-HMM models estimated v
 
 ## Installation
 
+### Create environment with Python 3.11 (critical!)
+conda create -n rfm_hmm python=3.11
+conda activate rfm_hmm
+
+### Install requirements
+pip install -r requirements.txt
+
 ```bash
 # Clone repository
 git clone https://github.com/sudhir-voleti/rfm-hmm-smc.git
