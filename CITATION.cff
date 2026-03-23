@@ -3,20 +3,14 @@ message: "If you use this software, please cite both the article and the softwar
 type: software
 title: "RFM-HMM-SMC: Sequential Monte Carlo for High-Sparsity Transaction Data"
 authors:
-  - family-names: "Voleti"
-    given-names: "Sudhir"
-    orcid: "https://orcid.org/0000-0000-0000-0000"  # Update
-repository-code: "https://github.com/sudhir-voleti/rfm-hmm-smc"  # Update
+  - name: "Anonymous"
+repository-code: "https://anonymous.repo/rfm-hmm-smc"
 license: MIT
 preferred-citation:
   type: article
   title: "Sequential Monte Carlo for High-Sparsity Transaction Data: A Structural-Modular Tradeoff in RFM-HMM Estimation"
   authors:
-    - family-names: "Voleti"
-      given-names: "Sudhir"
+    - name: "Anonymous"
   journal: "Marketing Science"
   year: 2026
-  volume: 45
-  issue: 2
-  pages: "123-145"
-  status: "forthcoming"
+  status: "under review"
