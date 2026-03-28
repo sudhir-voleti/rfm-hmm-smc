@@ -34,8 +34,7 @@ python hmc_bemmaor.py \
     --data_path "/path/to/uci_500.csv"
 ```
 
-## Why HMC Fails
-
+## HMC v SMC Comparative
 | Problem Element | HMC Challenge | SMC Advantage |
 |-----------------|-------------|---------------|
 | **Discrete latent states** | Non-differentiable Viterbi path | Particle filtering handles naturally |
